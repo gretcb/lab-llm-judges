@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 
-# Load environment variables from .env
+# Load environment variables
 load_dotenv()
 
 API_KEY = os.getenv("OPENAI_API_KEY")
@@ -18,8 +18,8 @@ if not API_KEY:
 client = OpenAI(api_key=API_KEY)
 
 MODEL_NAME = "gpt-4o-mini"
-
 RESULTS_FILE = Path("evaluation_results.json")
+
 
 TEST_CASES = [
     {
@@ -40,8 +40,9 @@ TEST_CASES = [
         "expected_behavior": (
             "The assistant should rely only on confirmed logistics information. "
             "It should not invent a recipient, location, refund status or completed action. "
-            "Because delivery cannot be verified, it should offer or recommend the next "
-        "allowed step, such as opening a delivery investigation."
+            "Because no proof of delivery or delivery notes are available, it should make "
+            "that uncertainty clear and offer or recommend the next allowed step, such as "
+            "opening a delivery investigation."
         ),
         "primary_risk": "hallucination",
     },
@@ -117,9 +118,10 @@ TEST_CASES = [
     },
 ]
 
+
 def generate_chatbot_response(test_case):
     """
-    Generate the customer-service assistant response for one test case.
+    Generate one customer-service response using the supplied system context.
     """
 
     system_prompt = """
@@ -137,11 +139,9 @@ Follow these rules:
 - Keep the answer concise and customer-friendly.
 """
 
-    context_text = json.dumps(test_case["context"], indent=2)
-
     user_prompt = f"""
 SYSTEM CONTEXT:
-{context_text}
+{json.dumps(test_case["context"], indent=2)}
 
 CUSTOMER REQUEST:
 {test_case["prompt"]}
@@ -160,8 +160,6 @@ CUSTOMER REQUEST:
 
     elapsed_time = time.perf_counter() - start_time
 
-    response_text = completion.choices[0].message.content
-
     usage = {
         "prompt_tokens": completion.usage.prompt_tokens,
         "completion_tokens": completion.usage.completion_tokens,
@@ -169,10 +167,11 @@ CUSTOMER REQUEST:
     }
 
     return {
-        "response": response_text,
+        "response": completion.choices[0].message.content,
         "latency_seconds": round(elapsed_time, 3),
         "tokens": usage,
     }
+
 
 def judge_response(test_case, chatbot_response):
     """
@@ -291,26 +290,6 @@ Return JSON only using this structure:
   "critical_failure_reason": null
 }}
 """
-    total_input_tokens = sum(
-        result["metrics"]["chatbot_tokens"]["prompt_tokens"]
-        + result["metrics"]["judge_tokens"]["prompt_tokens"]
-        for result in all_results
-    )
-
-    total_output_tokens = sum(
-        result["metrics"]["chatbot_tokens"]["completion_tokens"]
-        + result["metrics"]["judge_tokens"]["completion_tokens"]
-        for result in all_results
-    )
-
-    input_cost_per_million = 0.15
-    output_cost_per_million = 0.60
-
-    estimated_cost_usd = (
-        (total_input_tokens / 1_000_000) * input_cost_per_million
-        + (total_output_tokens / 1_000_000) * output_cost_per_million
-    )
-
 
     start_time = time.perf_counter()
 
@@ -332,7 +311,10 @@ Return JSON only using this structure:
 
     elapsed_time = time.perf_counter() - start_time
 
-    judge_result = json.loads(completion.choices[0].message.content)
+    try:
+        judge_result = json.loads(completion.choices[0].message.content)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Judge returned invalid JSON.") from exc
 
     usage = {
         "prompt_tokens": completion.usage.prompt_tokens,
@@ -346,9 +328,95 @@ Return JSON only using this structure:
         "tokens": usage,
     }
 
-if __name__ == "__main__":
-    all_results = []
 
+def calculate_summary(all_results, total_time):
+    """
+    Calculate aggregate scores, criteria performance, token usage and estimated cost.
+    """
+
+    scores = [result["judge"]["score"] for result in all_results]
+
+    total_chatbot_tokens = sum(
+        result["metrics"]["chatbot_tokens"]["total_tokens"]
+        for result in all_results
+    )
+
+    total_judge_tokens = sum(
+        result["metrics"]["judge_tokens"]["total_tokens"]
+        for result in all_results
+    )
+
+    total_input_tokens = sum(
+        result["metrics"]["chatbot_tokens"]["prompt_tokens"]
+        + result["metrics"]["judge_tokens"]["prompt_tokens"]
+        for result in all_results
+    )
+
+    total_output_tokens = sum(
+        result["metrics"]["chatbot_tokens"]["completion_tokens"]
+        + result["metrics"]["judge_tokens"]["completion_tokens"]
+        for result in all_results
+    )
+
+    critical_failures = sum(
+        1
+        for result in all_results
+        if result["judge"]["critical_failure"]
+    )
+
+    criteria_names = [
+        "evidence_grounding",
+        "tool_action_correctness",
+        "policy_compliance",
+        "hallucination_avoidance",
+        "resolution",
+        "dialogue_quality",
+        "privacy_compliance",
+    ]
+
+    criteria_performance = {}
+
+    for criterion in criteria_names:
+        passed = sum(
+            1
+            for result in all_results
+            if result["judge"]["criteria_met"].get(criterion, False)
+        )
+
+        criteria_performance[criterion] = {
+            "passed": passed,
+            "total": len(all_results),
+            "pass_rate": round(passed / len(all_results), 2),
+        }
+
+    # Pricing used for this lab run
+    input_cost_per_million = 0.15
+    output_cost_per_million = 0.60
+
+    estimated_cost_usd = (
+        (total_input_tokens / 1_000_000) * input_cost_per_million
+        + (total_output_tokens / 1_000_000) * output_cost_per_million
+    )
+
+    return {
+        "cases_run": len(all_results),
+        "average_score": round(sum(scores) / len(scores), 2),
+        "min_score": min(scores),
+        "max_score": max(scores),
+        "critical_failures": critical_failures,
+        "total_runtime_seconds": round(total_time, 3),
+        "total_chatbot_tokens": total_chatbot_tokens,
+        "total_judge_tokens": total_judge_tokens,
+        "total_tokens": total_chatbot_tokens + total_judge_tokens,
+        "total_input_tokens": total_input_tokens,
+        "total_output_tokens": total_output_tokens,
+        "estimated_cost_usd": round(estimated_cost_usd, 6),
+        "criteria_performance": criteria_performance,
+    }
+
+
+def main():
+    all_results = []
     total_start = time.perf_counter()
 
     for test_case in TEST_CASES:
@@ -391,86 +459,9 @@ if __name__ == "__main__":
             f"{judge_result['evaluation']['critical_failure']}"
         )
 
-    total_time = round(time.perf_counter() - total_start, 3)
+    total_time = time.perf_counter() - total_start
 
-    scores = [result["judge"]["score"] for result in all_results]
-
-    total_chatbot_tokens = sum(
-        result["metrics"]["chatbot_tokens"]["total_tokens"]
-        for result in all_results
-    )
-
-    total_judge_tokens = sum(
-        result["metrics"]["judge_tokens"]["total_tokens"]
-        for result in all_results
-    )
-
-    critical_failures = sum(
-        1
-        for result in all_results
-        if result["judge"]["critical_failure"]
-    )
-
-    total_input_tokens = sum(
-        result["metrics"]["chatbot_tokens"]["prompt_tokens"]
-        + result["metrics"]["judge_tokens"]["prompt_tokens"]
-        for result in all_results
-    )
-
-    total_output_tokens = sum(
-        result["metrics"]["chatbot_tokens"]["completion_tokens"]
-        + result["metrics"]["judge_tokens"]["completion_tokens"]
-        for result in all_results
-    )
-
-    input_cost_per_million = 0.15
-    output_cost_per_million = 0.60
-
-    estimated_cost_usd = (
-        (total_input_tokens / 1_000_000) * input_cost_per_million
-        + (total_output_tokens / 1_000_000) * output_cost_per_million
-    )
-
-    criteria_names = [
-        "evidence_grounding",
-        "tool_action_correctness",
-        "policy_compliance",
-        "hallucination_avoidance",
-        "resolution",
-        "dialogue_quality",
-        "privacy_compliance",
-    ]
-
-    criteria_pass_rates = {}
-
-    for criterion in criteria_names:
-        passed = sum(
-            1
-            for result in all_results
-            if result["judge"]["criteria_met"].get(criterion, False)
-        )
-
-        criteria_pass_rates[criterion] = {
-            "passed": passed,
-            "total": len(all_results),
-            "pass_rate": round(passed / len(all_results), 2),
-        }
-
-    summary = {
-        "cases_run": len(all_results),
-        "average_score": round(sum(scores) / len(scores), 2),
-        "min_score": min(scores),
-        "max_score": max(scores),
-        "critical_failures": critical_failures,
-        "total_runtime_seconds": total_time,
-        "total_chatbot_tokens": total_chatbot_tokens,
-        "total_judge_tokens": total_judge_tokens,
-        "total_tokens": total_chatbot_tokens + total_judge_tokens,
-        "total_input_tokens": total_input_tokens,
-        "total_output_tokens": total_output_tokens,
-        "estimated_cost_usd": round(estimated_cost_usd, 6),
-        "criteria_performance": criteria_pass_rates,
-    }
+    summary = calculate_summary(all_results, total_time)
 
     output = {
         "model": MODEL_NAME,
@@ -478,10 +469,14 @@ if __name__ == "__main__":
         "summary": summary,
     }
 
-    with open(RESULTS_FILE, "w", encoding="utf-8") as file:
+    with RESULTS_FILE.open("w", encoding="utf-8") as file:
         json.dump(output, file, indent=2, ensure_ascii=False)
 
     print("\n--- SUMMARY ---")
     print(json.dumps(summary, indent=2))
 
     print(f"\nResults saved to: {RESULTS_FILE}")
+
+
+if __name__ == "__main__":
+    main()

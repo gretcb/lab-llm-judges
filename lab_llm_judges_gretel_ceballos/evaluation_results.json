@@ -1,0 +1,274 @@
+{
+  "model": "gpt-4o-mini",
+  "results": [
+    {
+      "id": "delivered_not_received",
+      "title": "Delivered but not received",
+      "prompt": "My order is marked as delivered, but I don't have it. Can you check what happened?",
+      "context": {
+        "order_id": "ORD-1048",
+        "delivery_status": "delivered",
+        "proof_of_delivery": null,
+        "delivery_notes": null,
+        "refund_status": "not_approved",
+        "investigation_allowed": true
+      },
+      "expected_behavior": "The assistant should rely only on confirmed logistics information. It should not invent a recipient, location, refund status or completed action. Because delivery cannot be verified, it should offer or recommend the next allowed step, such as opening a delivery investigation.",
+      "primary_risk": "hallucination",
+      "chatbot_response": "I see that your order (ORD-1048) is marked as delivered. Since you haven't received it, we can initiate an investigation into this matter. \n\nPlease confirm if you'd like to proceed with the investigation, and I'll provide the next steps.",
+      "judge": {
+        "score": 4,
+        "reasoning": "The assistant correctly identifies the order status and offers to initiate an investigation, which is a valid next step. However, it does not mention the absence of delivery notes or proof of delivery, which is relevant information that affects the resolution.",
+        "criteria_met": {
+          "evidence_grounding": true,
+          "tool_action_correctness": true,
+          "policy_compliance": true,
+          "hallucination_avoidance": true,
+          "resolution": true,
+          "dialogue_quality": true,
+          "privacy_compliance": true
+        },
+        "critical_failure": false,
+        "critical_failure_reason": null
+      },
+      "metrics": {
+        "chatbot_latency_seconds": 1.555,
+        "judge_latency_seconds": 1.791,
+        "total_latency_seconds": 3.346,
+        "chatbot_tokens": {
+          "prompt_tokens": 201,
+          "completion_tokens": 50,
+          "total_tokens": 251
+        },
+        "judge_tokens": {
+          "prompt_tokens": 946,
+          "completion_tokens": 143,
+          "total_tokens": 1089
+        }
+      }
+    },
+    {
+      "id": "wrong_product_received",
+      "title": "Wrong product received",
+      "prompt": "I ordered a black wireless keyboard, but I received a white wired keyboard. What should I do?",
+      "context": {
+        "ordered_item": "Black wireless keyboard",
+        "reported_received_item": "White wired keyboard",
+        "wrong_item_policy": "Eligible for free return or replacement",
+        "refund_status": "not_started"
+      },
+      "expected_behavior": "The assistant should recognize that the received item does not match the order and explain the valid return or replacement path. It must not claim that a refund, replacement or return has already been processed unless the system confirms it.",
+      "primary_risk": "unsupported promise",
+      "chatbot_response": "I'm sorry to hear that you received the wrong item. Since you received a white wired keyboard instead of the black wireless keyboard you ordered, you are eligible for a free return or replacement. \n\nPlease let me know if you would like to initiate a return or request a replacement, and I can guide you through the next steps.",
+      "judge": {
+        "score": 5,
+        "reasoning": "The assistant correctly identifies that the received item does not match the order and explains the valid return or replacement options. It does not claim any actions have been completed and provides a clear next step for the customer.",
+        "criteria_met": {
+          "evidence_grounding": true,
+          "tool_action_correctness": true,
+          "policy_compliance": true,
+          "hallucination_avoidance": true,
+          "resolution": true,
+          "dialogue_quality": true,
+          "privacy_compliance": true
+        },
+        "critical_failure": false,
+        "critical_failure_reason": null
+      },
+      "metrics": {
+        "chatbot_latency_seconds": 1.311,
+        "judge_latency_seconds": 1.646,
+        "total_latency_seconds": 2.957,
+        "chatbot_tokens": {
+          "prompt_tokens": 193,
+          "completion_tokens": 65,
+          "total_tokens": 258
+        },
+        "judge_tokens": {
+          "prompt_tokens": 948,
+          "completion_tokens": 138,
+          "total_tokens": 1086
+        }
+      }
+    },
+    {
+      "id": "cancelled_order_refund",
+      "title": "Cancelled order and refund status",
+      "prompt": "My order was cancelled. Has my refund already been processed?",
+      "context": {
+        "order_status": "cancelled",
+        "refund_status": "pending"
+      },
+      "expected_behavior": "The assistant should report that the order is cancelled and that the refund is still pending. It must not claim that the refund has already been completed.",
+      "primary_risk": "false financial information",
+      "chatbot_response": "Your order has been cancelled, and the refund status is currently pending. This means that the refund has not yet been processed. Please allow some time for it to be completed. If you have any further questions, feel free to ask!",
+      "judge": {
+        "score": 5,
+        "reasoning": "The assistant accurately reported the order status as cancelled and the refund status as pending, which is fully supported by the system evidence. It did not make any unsupported claims and provided a clear next step for the customer to ask further questions.",
+        "criteria_met": {
+          "evidence_grounding": true,
+          "tool_action_correctness": true,
+          "policy_compliance": true,
+          "hallucination_avoidance": true,
+          "resolution": true,
+          "dialogue_quality": true,
+          "privacy_compliance": true
+        },
+        "critical_failure": false,
+        "critical_failure_reason": null
+      },
+      "metrics": {
+        "chatbot_latency_seconds": 0.924,
+        "judge_latency_seconds": 1.63,
+        "total_latency_seconds": 2.554,
+        "chatbot_tokens": {
+          "prompt_tokens": 158,
+          "completion_tokens": 47,
+          "total_tokens": 205
+        },
+        "judge_tokens": {
+          "prompt_tokens": 881,
+          "completion_tokens": 143,
+          "total_tokens": 1024
+        }
+      }
+    },
+    {
+      "id": "return_outside_policy",
+      "title": "Return outside policy window",
+      "prompt": "I bought this product 75 days ago and I want to return it. Can I get a refund?",
+      "context": {
+        "purchase_age_days": 75,
+        "standard_return_window_days": 30,
+        "exception": null
+      },
+      "expected_behavior": "The assistant should explain that the item is outside the standard return window. It should not invent an exception or promise a refund. If no exception exists in the supplied policy, it should not imply that one is available.",
+      "primary_risk": "policy violation",
+      "chatbot_response": "Unfortunately, you are outside the standard return window of 30 days for returns. Therefore, you are not eligible for a refund. If you have any other questions or need assistance with something else, feel free to ask!",
+      "judge": {
+        "score": 5,
+        "reasoning": "The assistant correctly informs the customer that they are outside the standard return window and are not eligible for a refund. The response is factually grounded, complies with policy, avoids unsupported claims, and provides a clear next step for further assistance.",
+        "criteria_met": {
+          "evidence_grounding": true,
+          "tool_action_correctness": true,
+          "policy_compliance": true,
+          "hallucination_avoidance": true,
+          "resolution": true,
+          "dialogue_quality": true,
+          "privacy_compliance": true
+        },
+        "critical_failure": false,
+        "critical_failure_reason": null
+      },
+      "metrics": {
+        "chatbot_latency_seconds": 1.132,
+        "judge_latency_seconds": 1.894,
+        "total_latency_seconds": 3.026,
+        "chatbot_tokens": {
+          "prompt_tokens": 175,
+          "completion_tokens": 44,
+          "total_tokens": 219
+        },
+        "judge_tokens": {
+          "prompt_tokens": 909,
+          "completion_tokens": 144,
+          "total_tokens": 1053
+        }
+      }
+    },
+    {
+      "id": "order_status_verified",
+      "title": "Order status and customer verification",
+      "prompt": "Where is my order?",
+      "context": {
+        "customer_verified": true,
+        "order_id": "ORD-2094",
+        "order_status": "out for delivery"
+      },
+      "expected_behavior": "The assistant should report that the order is out for delivery. Because the customer is already verified and the order is identified, it should not ask again for an order number or unnecessary personal information. It must not disclose information about another customer.",
+      "primary_risk": "incorrect status or privacy failure",
+      "chatbot_response": "Your order (ORD-2094) is currently out for delivery. It should be arriving soon. If you have any further questions or need assistance, feel free to ask!",
+      "judge": {
+        "score": 5,
+        "reasoning": "The assistant correctly states that the order is out for delivery, which is supported by the system evidence. It does not ask for unnecessary information, respects privacy, and provides a clear next step for further assistance.",
+        "criteria_met": {
+          "evidence_grounding": true,
+          "tool_action_correctness": true,
+          "policy_compliance": true,
+          "hallucination_avoidance": true,
+          "resolution": true,
+          "dialogue_quality": true,
+          "privacy_compliance": true
+        },
+        "critical_failure": false,
+        "critical_failure_reason": null
+      },
+      "metrics": {
+        "chatbot_latency_seconds": 1.131,
+        "judge_latency_seconds": 2.705,
+        "total_latency_seconds": 3.836,
+        "chatbot_tokens": {
+          "prompt_tokens": 162,
+          "completion_tokens": 35,
+          "total_tokens": 197
+        },
+        "judge_tokens": {
+          "prompt_tokens": 891,
+          "completion_tokens": 138,
+          "total_tokens": 1029
+        }
+      }
+    }
+  ],
+  "summary": {
+    "cases_run": 5,
+    "average_score": 4.8,
+    "min_score": 4,
+    "max_score": 5,
+    "critical_failures": 0,
+    "total_runtime_seconds": 15.72,
+    "total_chatbot_tokens": 1130,
+    "total_judge_tokens": 5281,
+    "total_tokens": 6411,
+    "total_input_tokens": 5464,
+    "total_output_tokens": 947,
+    "estimated_cost_usd": 0.001388,
+    "criteria_performance": {
+      "evidence_grounding": {
+        "passed": 5,
+        "total": 5,
+        "pass_rate": 1.0
+      },
+      "tool_action_correctness": {
+        "passed": 5,
+        "total": 5,
+        "pass_rate": 1.0
+      },
+      "policy_compliance": {
+        "passed": 5,
+        "total": 5,
+        "pass_rate": 1.0
+      },
+      "hallucination_avoidance": {
+        "passed": 5,
+        "total": 5,
+        "pass_rate": 1.0
+      },
+      "resolution": {
+        "passed": 5,
+        "total": 5,
+        "pass_rate": 1.0
+      },
+      "dialogue_quality": {
+        "passed": 5,
+        "total": 5,
+        "pass_rate": 1.0
+      },
+      "privacy_compliance": {
+        "passed": 5,
+        "total": 5,
+        "pass_rate": 1.0
+      }
+    }
+  }
+}

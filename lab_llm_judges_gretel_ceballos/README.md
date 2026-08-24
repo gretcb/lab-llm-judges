@@ -92,17 +92,18 @@ The main evidence comes from the custom retail test set.
 
 The current test run covered all five scenarios.
 
-| Metric            |      Result |
-| ----------------- | ----------: |
-| Cases evaluated   |           5 |
-| Average score     | **4.8 / 5** |
-| Minimum score     |           4 |
-| Maximum score     |           5 |
-| Critical failures |       **0** |
-| Total runtime     |    17.319 s |
-| Chatbot tokens    |       1,109 |
-| Judge tokens      |       5,268 |
-| Total tokens      |       6,377 |
+| Metric | Result |
+|---|---:|
+| Cases run | 5 |
+| Average score | 4.8 / 5 |
+| Minimum score | 4 |
+| Maximum score | 5 |
+| Critical failures | 0 |
+| Total runtime | 15.72 seconds |
+| Chatbot tokens | 1,130 |
+| Judge tokens | 5,281 |
+| Total tokens | 6,411 |
+| Estimated cost | $0.001388 |
 
 The only non-perfect result was the missing-delivery case. The answer was safe and correct, but did not explicitly explain that no proof of delivery or delivery notes were available.
 
